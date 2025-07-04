@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Влияние авторитета на пожертвования: Интерактивное исследование</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Harmony (Background: #FDFBF8, Text: #4F4A45, Primary: #675D50, Accent: #A9907E) -->
+    <!-- Application Structure Plan: The application is designed as a guided narrative journey, moving from foundational theory to practical application and finally to actionable recommendations. This top-down structure helps users build understanding progressively. It starts with a hero section to set the context, followed by an exploration of the core "Types of Authority" which serves as the main interactive hub. Users can select an authority type to dynamically filter the content, including definitions, real-world examples, and data-driven insights. This is more engaging than a linear report format. Subsequent sections cover moderating factors and provide clear, organized recommendations for non-profits. This structure prioritizes user discovery and comprehension over simply replicating the report's layout. -->
+    <!-- Visualization & Content Choices: 
+        - Goal: Compare/Explore - The core of the app is a set of interactive buttons for each authority type (Expert, Legitimate, Referent). This interaction filters the displayed content, allowing users to compare and contrast the types. (Method: JS DOM manipulation).
+        - Goal: Inform (Data) - Key statistics from the report are presented as dynamic, easy-to-read "stat cards" and a Chart.js Donut chart to visualize trust levels (48% trust). This makes quantitative data more impactful than plain text. (Method: Chart.js/Canvas).
+        - Goal: Organize (Theories & Recommendations) - Complex theories (like Weber, Cialdini) are simplified into expandable accordion sections. This prevents information overload and keeps the layout clean. Recommendations are presented in a clear, actionable list format. (Method: HTML/Tailwind + JS for accordion).
+        - Justification: This multi-faceted approach transforms a dense academic report into an engaging learning tool. It uses visualizations to clarify data and interactive elements to empower the user to explore the content at their own pace, aligning with the goal of enhancing understanding and retention.
+        - Library: Chart.js for all visualizations.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDFBF8;
+            color: #4F4A45;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 350px;
+        }
+        .nav-button {
+            transition: all 0.3s ease;
+        }
+        .nav-button.active {
+            background-color: #675D50;
+            color: #FDFBF8;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .content-section {
+            display: none;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        .content-section.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #675D50;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: none; /* Hidden by default */
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <main class="container mx-auto px-4 py-8 md:py-12">
+        <header class="text-center mb-10 md:mb-16">
+            <h1 class="text-4xl md:text-5xl font-bold text-[#675D50] mb-3">Влияние авторитета на пожертвования</h1>
+            <p class="text-lg md:text-xl text-[#4F4A45] max-w-3xl mx-auto">Интерактивный анализ того, как доверие к личности формирует нашу щедрость</p>
+        </header>
+
+        <section id="authorityTypes" class="mb-12">
+            <div class="w-full p-6 md:p-8 bg-white/50 rounded-2xl shadow-sm border border-gray-200/80">
+                <h2 class="text-2xl md:text-3xl font-bold text-center text-[#675D50] mb-2">Три лика авторитета</h2>
+                <p class="text-center text-gray-600 mb-8 max-w-2xl mx-auto">Выберите тип авторитета, чтобы узнать, как он работает, увидеть примеры из реальной жизни и понять его влияние на решения доноров.</p>
+                <div class="flex flex-col sm:flex-row justify-center items-center gap-3 md:gap-4 mb-8">
+                    <button class="nav-button w-full sm:w-auto text-lg font-semibold py-3 px-8 rounded-full bg-white shadow-sm border border-gray-200/80 text-[#675D50] hover:bg-gray-50" data-type="expert">🎓 Экспертный</button>
+                    <button class="nav-button w-full sm:w-auto text-lg font-semibold py-3 px-8 rounded-full bg-white shadow-sm border border-gray-200/80 text-[#675D50] hover:bg-gray-50" data-type="legitimate">🏛️ Легитимный</button>
+                    <button class="nav-button w-full sm:w-auto text-lg font-semibold py-3 px-8 rounded-full bg-white shadow-sm border border-gray-200/80 text-[#675D50] hover:bg-gray-50" data-type="referent">❤️ Референтный</button>
+                </div>
+
+                <div id="contentContainer" class="mt-8">
+                    <div id="expert-content" class="content-section">
+                        <div class="grid md:grid-cols-5 gap-8 items-center">
+                            <div class="md:col-span-3">
+                                <h3 class="text-2xl font-bold text-[#675D50] mb-4">Экспертный авторитет: Сила знаний</h3>
+                                <p class="mb-4 text-gray-700">Этот тип авторитета основан на воспринимаемой компетентности, знаниях и опыте. Люди доверяют экспертам, потому что верят в их глубокое понимание предмета. В благотворительности это проявляется через доверие к аналитическим организациям, исследователям и академическим лидерам, которые могут доказать эффективность программ.</p>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center">
+                                    <div class="bg-[#FDFBF8]/60 p-4 rounded-xl border border-gray-200/60">
+                                        <div class="text-3xl font-bold text-[#675D50]">+76%</div>
+                                        <p class="text-sm text-gray-600">Рост пожертвований при предложении пакета "любимая + эффективная" благотворительность.</p>
+                                    </div>
+                                    <div class="bg-[#FDFBF8]/60 p-4 rounded-xl border border-gray-200/60">
+                                        <div class="text-3xl font-bold text-[#675D50]">>200,000</div>
+                                        <p class="text-sm text-gray-600">Спасенных жизней благодаря рекомендациям экспертной организации GiveWell.</p>
+                                    </div>
+                                </div>
+                                <button class="generate-cta-button mt-6 w-full sm:w-auto text-lg font-semibold py-3 px-8 rounded-full bg-[#A9907E] text-white shadow-sm hover:bg-[#977F6E]" data-auth-type="expert">✨ Сгенерировать призыв к действию</button>
+                                <div class="generated-cta-output mt-4 p-4 bg-[#FDFBF8]/60 rounded-xl border border-gray-200/60 text-gray-700 hidden">
+                                    <div class="spinner mx-auto mb-2"></div>
+                                    <p class="text-sm text-center"></p>
+                                </div>
+                            </div>
+                            <div class="md:col-span-2">
+                                <div class="p-4 bg-[#FDFBF8]/60 rounded-xl border border-gray-200/60">
+                                    <h4 class="text-center font-bold mb-2 text-gray-700">Проблема доверия</h4>
+                                    <p class="text-xs text-center text-gray-500 mb-2">Опрос в Великобритании показал, что менее половины людей доверяют благотворительным организациям. Экспертная оценка помогает преодолеть этот барьер.</p>
+                                    <div class="chart-container h-[200px] max-h-[220px]">
+                                        <canvas id="trustChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="legitimate-content" class="content-section">
+                        <h3 class="text-2xl font-bold text-[#675D50] mb-4 text-center">Легитимный авторитет: Власть позиции и правил</h3>
+                        <p class="mb-8 text-gray-700 text-center max-w-3xl mx-auto">Этот авторитет проистекает из формальной должности или статуса человека в социальной структуре (например, CEO, член правления) или из легитимности самой организации (сертификация, прозрачность). Пожертвования "лидеров" — крупных доноров — служат мощным сигналом качества, легитимизируя кампанию для других.</p>
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div class="bg-white p-6 rounded-xl border border-gray-200/80 shadow-sm">
+                                <p class="text-3xl font-bold text-[#675D50] text-center mb-2">10%</p>
+                                <p class="text-center text-gray-600">Рекомендуемая доля "лидерского пожертвования" от общей цели кампании для сигнализации о качестве и надежности проекта.</p>
+                            </div>
+                            <div class="bg-white p-6 rounded-xl border border-gray-200/80 shadow-sm">
+                                <h4 class="font-bold text-lg mb-2 text-center text-[#675D50]">Прозрачность = Доверие</h4>
+                                <p class="text-center text-gray-600">Добровольная сертификация, внешние аудиты и полная финансовая открытость напрямую влияют на доверие доноров и, как следствие, на сумму пожертвований.</p>
+                            </div>
+                        </div>
+                        <button class="generate-cta-button mt-6 w-full sm:w-auto text-lg font-semibold py-3 px-8 rounded-full bg-[#A9907E] text-white shadow-sm hover:bg-[#977F6E]" data-auth-type="legitimate">✨ Сгенерировать призыв к действию</button>
+                        <div class="generated-cta-output mt-4 p-4 bg-[#FDFBF8]/60 rounded-xl border border-gray-200/60 text-gray-700 hidden">
+                            <div class="spinner mx-auto mb-2"></div>
+                            <p class="text-sm text-center"></p>
+                        </div>
+                    </div>
+                    <div id="referent-content" class="content-section">
+                        <h3 class="text-2xl font-bold text-[#675D50] mb-4 text-center">Референтный авторитет: Магия харизмы и восхищения</h3>
+                        <p class="mb-8 text-gray-700 text-center max-w-3xl mx-auto">Эта форма влияния основана на личном восхищении, уважении и желании быть похожим на авторитетную фигуру. Знаменитости, инфлюенсеры и харизматичные лидеры используют свою популярность для привлечения внимания и мобилизации поддержки. Их одобрение работает как "сигнал доверия".</p>
+                        <div class="grid md:grid-cols-2 gap-6 items-start">
+                             <div class="bg-white p-6 rounded-xl border border-gray-200/80 shadow-sm">
+                                <h4 class="font-bold text-lg mb-2 text-center text-[#675D50]">Эффект знаменитостей</h4>
+                                <p class="text-center text-gray-600">Одобрение от знаменитостей, особенно спортсменов и кинозвезд, значительно увеличивает пожертвования, придавая легитимность кампаниям.</p>
+                                <p class="text-xs text-center mt-4 text-gray-500">Важно: Наибольший эффект достигается, когда есть личная связь знаменитости с делом.</p>
+                            </div>
+                            <div class="bg-white p-6 rounded-xl border border-gray-200/80 shadow-sm">
+                                <h4 class="font-bold text-lg mb-2 text-center text-[#675D50]">Обоюдоострый меч харизмы</h4>
+                                <p class="text-center text-gray-600">Харизматичные лидеры отлично привлекают первоначальное финансирование, но чрезмерная зависимость от одной личности может навредить долгосрочной устойчивости организации.</p>
+                            </div>
+                        </div>
+                        <button class="generate-cta-button mt-6 w-full sm:w-auto text-lg font-semibold py-3 px-8 rounded-full bg-[#A9907E] text-white shadow-sm hover:bg-[#977F6E]" data-auth-type="referent">✨ Сгенерировать призыв к действию</button>
+                        <div class="generated-cta-output mt-4 p-4 bg-[#FDFBF8]/60 rounded-xl border border-gray-200/60 text-gray-700 hidden">
+                            <div class="spinner mx-auto mb-2"></div>
+                            <p class="text-sm text-center"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="theories" class="mb-12">
+             <h2 class="text-2xl md:text-3xl font-bold text-center text-[#675D50] mb-8">Теоретические основы</h2>
+             <div class="max-w-4xl mx-auto space-y-4">
+                <div class="accordion-item bg-white/50 rounded-xl border border-gray-200/80 shadow-sm">
+                    <button class="accordion-header w-full flex justify-between items-center p-5 text-left font-semibold text-lg text-[#675D50]">
+                        <span>Психологические механизмы</span>
+                        <span class="transform transition-transform duration-300">▼</span>
+                    </button>
+                    <div class="accordion-content px-5 pb-5">
+                        <ul class="list-disc list-inside space-y-2 text-gray-700">
+                            <li><strong>Принцип авторитета Чалдини:</strong> Мы склонны доверять тем, кого считаем экспертами. Демонстрация дипломов или наград повышает подчинение.</li>
+                            <li><strong>Эксперименты Милгрэма:</strong> Демонстрируют нашу глубокую склонность подчиняться авторитетам, даже вопреки морали. Присутствие авторитета снимает с нас часть ответственности.</li>
+                             <li><strong>Эмпатия и альтруизм:</strong> Авторитеты могут усиливать наши врожденные просоциальные импульсы, направляя их на конкретные, проверенные цели.</li>
+                        </ul>
+                    </div>
+                </div>
+                 <div class="accordion-item bg-white/50 rounded-xl border border-gray-200/80 shadow-sm">
+                    <button class="accordion-header w-full flex justify-between items-center p-5 text-left font-semibold text-lg text-[#675D50]">
+                        <span>Социологические концепции</span>
+                        <span class="transform transition-transform duration-300">▼</span>
+                    </button>
+                    <div class="accordion-content px-5 pb-5">
+                        <ul class="list-disc list-inside space-y-2 text-gray-700">
+                            <li><strong>Типы авторитета Вебера:</strong>
+                                <ul class="list-[circle] list-inside ml-5">
+                                    <li><strong>Традиционный:</strong> Власть обычаев (старые фонды, церкви).</li>
+                                    <li><strong>Харизматический:</strong> Власть личности (вдохновляющие лидеры).</li>
+                                    <li><strong>Легально-рациональный:</strong> Власть законов и правил (прозрачные НКО).</li>
+                                </ul>
+                            </li>
+                            <li><strong>Основы власти по Френчу и Рейвену:</strong> Выделяют экспертную и референтную власть как наиболее эффективные для достижения подлинной приверженности, в отличие от власти принуждения.</li>
+                        </ul>
+                    </div>
+                </div>
+             </div>
+        </section>
+
+        <section id="recommendations">
+            <h2 class="text-2xl md:text-3xl font-bold text-center text-[#675D50] mb-8">Ключевые выводы и рекомендации для НКО</h2>
+            <div class="max-w-4xl mx-auto grid md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-xl border border-gray-200/80 shadow-sm">
+                    <h3 class="font-bold text-lg text-[#675D50] mb-3">✅ Что делать:</h3>
+                    <ul class="space-y-3 text-gray-700">
+                        <li class="flex items-start"><span class="mr-2 text-[#675D50]">✔️</span><span><strong>Инвестируйте в экспертность:</strong> Демонстрируйте измеримое воздействие через исследования (РКИ) и партнерства.</span></li>
+                        <li class="flex items-start"><span class="mr-2 text-[#675D50]">✔️</span><span><strong>Укрепляйте легитимность:</strong> Проходите сертификацию, будьте прозрачны в финансах и управлении.</span></li>
+                        <li class="flex items-start"><span class="mr-2 text-[#675D50]">✔️</span><span><strong>Используйте лидеров мнений:</strong> Стратегически привлекайте знаменитостей и лидеров сообществ, чьи ценности совпадают с вашими.</span></li>
+                         <li class="flex items-start"><span class="mr-2 text-[#675D50]">✔️</span><span><strong>Адаптируйте подход:</strong> Учитывайте демографию доноров (возраст, взгляды) при создании сообщений.</span></li>
+                    </ul>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-gray-200/80 shadow-sm">
+                    <h3 class="font-bold text-lg text-[#A9907E] mb-3">❌ Чего избегать:</h3>
+                    <ul class="space-y-3 text-gray-700">
+                        <li class="flex items-start"><span class="mr-2 text-[#A9907E]">❗</span><span><strong>Чрезмерной зависимости:</strong> Не полагайтесь только на одного харизматичного лидера или знаменитость. Развивайте собственный бренд.</span></li>
+                        <li class="flex items-start"><span class="mr-2 text-[#A9907E]">❗</span><span><strong>Несоответствия:</strong> Избегайте сотрудничества с авторитетами, чей имидж не соответствует миссии вашей организации.</span></li>
+                        <li class="flex items-start"><span class="mr-2 text-[#A9907E]">❗</span><span><strong>Непрозрачности:</strong> Любые финансовые нарушения или скандалы подрывают доверие сильнее, чем любая знаменитость может его построить.</span></li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+    </main>
+    <footer class="text-center py-6 border-t border-gray-200/80 mt-12">
+        <p class="text-sm text-gray-500">Интерактивная визуализация на основе отчета "Влияние авторитета человека на сумму пожертвований".</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const buttons = document.querySelectorAll('.nav-button');
+            const contentSections = document.querySelectorAll('.content-section');
+            const expertContent = document.getElementById('expert-content');
+
+            function updateContent(type) {
+                buttons.forEach(button => {
+                    button.classList.toggle('active', button.dataset.type === type);
+                });
+                contentSections.forEach(section => {
+                    section.classList.toggle('active', section.id === `${type}-content`);
+                    // Hide any previously generated CTA outputs when switching sections
+                    const ctaOutput = section.querySelector('.generated-cta-output');
+                    if (ctaOutput) {
+                        ctaOutput.classList.add('hidden');
+                        ctaOutput.querySelector('p').textContent = '';
+                        ctaOutput.querySelector('.spinner').style.display = 'none';
+                    }
+                });
+            }
+            
+            buttons.forEach(button => {
+                button.addEventListener('click', () => {
+                    updateContent(button.dataset.type);
+                });
+            });
+
+            // Set initial state
+            updateContent('expert');
+
+            // Chart.js implementation
+            if (expertContent.classList.contains('active')) {
+                 const ctx = document.getElementById('trustChart').getContext('2d');
+                 new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Доверяют', 'Не доверяют или сомневаются'],
+                        datasets: [{
+                            label: 'Уровень доверия',
+                            data: [48, 52],
+                            backgroundColor: [
+                                '#675D50',
+                                '#EAE0D5'
+                            ],
+                            borderColor: [
+                                '#FDFBF8'
+                            ],
+                            borderWidth: 3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    boxWidth: 12,
+                                    font: {
+                                        size: 12
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed !== null) {
+                                            label += context.parsed + '%';
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        },
+                        cutout: '60%'
+                    }
+                });
+            }
+
+            // Accordion functionality
+            const accordionItems = document.querySelectorAll('.accordion-item');
+            accordionItems.forEach(item => {
+                const header = item.querySelector('.accordion-header');
+                const content = item.querySelector('.accordion-content');
+                const icon = header.querySelector('span:last-child');
+
+                header.addEventListener('click', () => {
+                    const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
+                    
+                    if (isOpen) {
+                        content.style.maxHeight = '0px';
+                        icon.style.transform = 'rotate(0deg)';
+                    } else {
+                        content.style.maxHeight = content.scrollHeight + 'px';
+                        icon.style.transform = 'rotate(180deg)';
+                    }
+                });
+            });
+
+            // Gemini API integration for CTA generation
+            const generateCtaButtons = document.querySelectorAll('.generate-cta-button');
+
+            generateCtaButtons.forEach(button => {
+                button.addEventListener('click', async () => {
+                    const authType = button.dataset.authType;
+                    const outputDiv = button.nextElementSibling; // The div right after the button
+                    const outputText = outputDiv.querySelector('p');
+                    const spinner = outputDiv.querySelector('.spinner');
+
+                    outputDiv.classList.remove('hidden');
+                    outputText.textContent = '';
+                    spinner.style.display = 'block'; // Show spinner
+
+                    let prompt = '';
+                    switch (authType) {
+                        case 'expert':
+                            prompt = "Напиши короткий, убедительный призыв к действию для благотворительной кампании, основанный на экспертном авторитете. Сосредоточься на данных, исследованиях и измеримом воздействии. Максимум 30 слов.";
+                            break;
+                        case 'legitimate':
+                            prompt = "Напиши короткий, убедительный призыв к действию для благотворительной кампании, основанный на легитимном авторитете. Сосредоточься на прозрачности, надежности и поддержке лидеров. Максимум 30 слов.";
+                            break;
+                        case 'referent':
+                            prompt = "Напиши короткий, убедительный призыв к действию для благотворительной кампании, основанный на референтном авторитете. Сосредоточься на личной связи, вдохновении и эмоциональном отклике. Максимум 30 слов.";
+                            break;
+                    }
+
+                    try {
+                        let chatHistory = [];
+                        chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                        const payload = { contents: chatHistory };
+                        const apiKey = ""; // If you want to use models other than gemini-2.0-flash or imagen-3.0-generate-002, provide an API key here. Otherwise, leave this as-is.
+                        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                        
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const result = await response.json();
+
+                        if (result.candidates && result.candidates.length > 0 &&
+                            result.candidates[0].content && result.candidates[0].content.parts &&
+                            result.candidates[0].content.parts.length > 0) {
+                            const text = result.candidates[0].content.parts[0].text;
+                            outputText.textContent = text;
+                        } else {
+                            outputText.textContent = 'Ошибка: не удалось сгенерировать призыв к действию.';
+                            console.error('Unexpected API response structure:', result);
+                        }
+                    } catch (error) {
+                        outputText.textContent = 'Ошибка при вызове API. Пожалуйста, попробуйте еще раз.';
+                        console.error('Error calling Gemini API:', error);
+                    } finally {
+                        spinner.style.display = 'none'; // Hide spinner
+                    }
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>
